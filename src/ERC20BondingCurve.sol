@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.0;
 
 
-import import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "./curves/BancorFormula.sol";
 
 
 contract ERC20BondingCurve is BancorFormula, ERC20 {
 
     // Define Important state variables
-    uint public decimals = 10**18;
+    uint public scale = 10**18;
     
     // Set Initially the reverve balance to 100 USDT
-    uint public reserveBalance = 100 * decimals;
+    uint public reserveBalance = 100 * scale;
 
     // set reserves address (USDT)
-    address public reserveAddress;
+    address public reserveTokenAddress;
     
     // set reserves Ratio
     uint public reserveRatio;
@@ -39,11 +39,10 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
      * @param _reserveRatio(RR) to determine the bonding curve to be used. 50% RR = Linear Bonding Curve, 10% RR = Exponential Bonding Curve
      * @param _reserveTokenAddress Contract address of ERC20 Token to use as reserve/exchange of value e.g USDT
      */
-    constructor(uint256 _reserveRatio, address _reserveAddress) {
-        ERC20("Bonded Token", "BTC");
+    constructor(uint256 _reserveRatio, address _reserveTokenAddress) ERC20("Bonded Token", "BTC") {
         reserveRatio = _reserveRatio;
-        reserveAddress = _reserveAddress;
-        _mint(msg.sender, 10 * decimals);
+        reserveTokenAddress = _reserveTokenAddress;
+        _mint(msg.sender, 10 * scale);
     }
 
 
@@ -60,11 +59,11 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         require(_depositedAmount > 0, "_depositedAmount_CANNOT_BE_ZERO");
 
         // Check if the contract has enough allowance
-        uint allowance = IERC20(reserveAddress).allowance(msg.sender, address(this));
+        uint allowance = IERC20(reserveTokenAddress).allowance(msg.sender, address(this));
         
         require(_depositedAmount >= allowance, "NOT_ENOUGH_ALLOWANCE");
       
-        bool succ = IERC20(reserveAddress).transferFrom(msg.sender, address(this), allowance);
+        bool succ = IERC20(reserveTokenAddress).transferFrom(msg.sender, address(this), allowance);
         require(succ, "Transfer of reserve tokens failed");
 
         return _continousMint(allowance); // to create later
@@ -81,7 +80,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         require(_amount > 0, "amount cannot be zero");
         require(balanceOf(msg.sender) > _amount, "Not Enough Tokens");
         uint returnedAmount = _continousBurn(_amount);
-        IERC20(reserveAddress).transfer(msg.sender, returnedAmount);
+        IERC20(reserveTokenAddress).transfer(msg.sender, returnedAmount);
     }
 
 
@@ -91,7 +90,9 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         
         uint payBackAmount  = calculateContinuousBurnReturn(_amount);
 
-        burn(msg.sender, _amount * decimals); // Maybe An error will come from this 
+        _burn(msg.sender, _amount); // Maybe An error will come from this 
+
+        // burn(msg.sender, _amount * scale);
 
         reserveBalance -= payBackAmount;
 
@@ -109,7 +110,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         
         reserveBalance += _deposit;
 
-        _mint(msg.sender, amountToMint * decimals);
+        _mint(msg.sender, amountToMint * scale);
 
         emit MintTokens(msg.sender, amountToMint);
 
