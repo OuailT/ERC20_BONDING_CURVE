@@ -14,7 +14,7 @@ contract ContinousToken is BancorFormula, ERC20 {
 
 
     // Stop at this function "calculateContinuousMintReturn" TODO Explore more
-    // Check the Bancor protocol has still have the same function to calculateContinuousMintReturn and other functions as well. 
+    // Check if the Bancor protocol still have the same function to calculateContinuousMintReturn and other functions as well. 
 
 
     // _continuousMint() and _continuousBurn() are internal functions that increase or decrease the total supply respectievly. 
@@ -44,7 +44,6 @@ contract ContinousToken is BancorFormula, ERC20 {
      * ReserveRation = Price sensitivity
      * // NOTE: The _reserveratio will be held constant by The Bancor formula as both the 'ReverveTokenBalance' and 'TotalSupply' fluctuate with buys and sells.
        // ReserveRatio determines how sharply a Continuous Token's prices needs to adjust in order to be maintained with every transaction.
-       // 
      * @param _reserveRatio(RR) to determine the bonding curve to be used. 50% RR = Linear Bonding Curve, 10% RR = Exponential Bonding Curve
      * @param _reserveTokenAddress Contract address of ERC20 Token to use as reserve/exchange of value e.g DAI
      */
@@ -88,10 +87,10 @@ contract ContinousToken is BancorFormula, ERC20 {
     }
 
 
+    // PurchaseReturn = ContinuousTokenSupply * ((1 + ReserveTokensReceived / ReserveTokenBalance) ^ (ReserveRatio) - 1)
+    // SaleReturn = ReserveTokenBalance * (1 - (1 - ContinuousTokensReceived / ContinuousTokenSupply) ^ (1 / (ReserveRatio)))
 
-
-
-    /**
+    /**@notice purchaseTargetAmount returns a price for a given buy token amount.
      * @dev Burn some TOK token and return reserve token based on current curve price
      * @param _amount Number of TOK token to convert to reserve tokens
      */
@@ -101,7 +100,9 @@ contract ContinousToken is BancorFormula, ERC20 {
     }
 
 
-    // Stop here
+    /**
+     * @notice purchaseTargetAmount returns a price for a given sell token amount.
+    */
     function calculateContinuousMintReturn(uint256 _amount)
         public
         view
@@ -117,7 +118,7 @@ contract ContinousToken is BancorFormula, ERC20 {
     }
 
 
-
+    
     function calculateContinuousBurnReturn(uint256 _amount)
         public
         view
@@ -135,7 +136,7 @@ contract ContinousToken is BancorFormula, ERC20 {
 
 
     /**
-     * @dev Internal function to increases the total supply by minting the specified amount of tokens.
+     * @dev Internal function to increases the total supply by minting the specified amount of tokens based on the deposited token(e.g, ETH);
      * @param _amount Amount of tokens to be minted
      */
     function _continuousMint (uint256 _deposit) internal returns (uint256) {
