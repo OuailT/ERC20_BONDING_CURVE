@@ -40,10 +40,15 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
      * @param _reserveTokenAddress Contract address of ERC20 Token to use as reserve/exchange of value e.g USDT
      */
     constructor(uint256 _reserveRatio, address _reserveTokenAddress) ERC20("Bonded Token", "BTC") {
+        require(_reserveRatio > 0 && _reserveRatio < 1000000, "Reserve Ratio is not within the range");
+        require(_reserveTokenAddress != address(0), "Address cannot be zero");
         reserveRatio = _reserveRatio;
         reserveTokenAddress = _reserveTokenAddress;
         _mint(msg.sender, 10 * scale);
     }
+
+   // 1.000.000.000 => 224744871391589049098642037.000000000000000000
+   // 10 => 2247448713915890490.000000000000000000
 
 
     
@@ -61,12 +66,13 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         // Check if the contract has enough allowance
         uint allowance = IERC20(reserveTokenAddress).allowance(msg.sender, address(this));
         
-        require(_depositedAmount >= allowance, "NOT_ENOUGH_ALLOWANCE");
-      
+        require(allowance > 0, "Allowance cannot be zero");
+        require(allowance >= _depositedAmount, "NOT_ENOUGH_ALLOWANCE");
+
         bool succ = IERC20(reserveTokenAddress).transferFrom(msg.sender, address(this), allowance);
         require(succ, "Transfer of reserve tokens failed");
 
-        return _continousMint(allowance); // to create later
+        return _continousMint(allowance); 
     }
 
 
@@ -76,7 +82,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         calculate the saleReturn based on the current position of the curve. [x]
         Transfer USDT to the seller [x]
      */
-    function burn(uint _amount) public {
+    function burn(uint256 _amount) public {
         require(_amount > 0, "amount cannot be zero");
         require(balanceOf(msg.sender) > _amount, "Not Enough Tokens");
         uint returnedAmount = _continousBurn(_amount);
@@ -88,6 +94,8 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
 
     function _continousBurn(uint _amount) public returns(uint256) {
         
+        require(_amount > 0, "_amount cannot be zero");
+
         uint payBackAmount  = calculateContinuousBurnReturn(_amount);
 
         _burn(msg.sender, _amount); // Maybe An error will come from this 
@@ -103,6 +111,12 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
 
 
 
+    function getBTCPrice() public view returns(uint256) {   
+        return (totalSupply() * reserveRatio) / reserveBalance;
+    }
+
+
+
 
     function _continousMint(uint _deposit) internal returns(uint256) {
 
@@ -110,7 +124,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         
         reserveBalance += _deposit;
 
-        _mint(msg.sender, amountToMint * scale);
+        _mint(msg.sender, amountToMint);
 
         emit MintTokens(msg.sender, amountToMint);
 
@@ -124,7 +138,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         purpose: Allows to calculate the price of the minted tokens based on the reservebalance(), and totalSupply() 
     */
     function calculateContinuousMintReturn(uint _amount) 
-        internal
+        public
         view 
         returns(uint256 mintAmount) {
         return purchaseTargetAmount(
@@ -137,10 +151,10 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
 
 
     // function  allow to calculate the amount of tokens to be withdrawn from the reserve based the amount of burned amount of BTC tokens
-    function calculateContinuousBurnReturn(uint _amount) 
-        internal
+    function calculateContinuousBurnReturn(uint256 _amount) 
+        public
         view 
-        returns(uint256) {
+        returns(uint256 burnAmount) {
         return saleTargetAmount(
             totalSupply(),
             reserveBalance,
