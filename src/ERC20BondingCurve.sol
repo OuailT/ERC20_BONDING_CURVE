@@ -81,10 +81,10 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         param: Amount of token to withdraw/burn get back USDT [x]
         calculate the saleReturn based on the current position of the curve. [x]
         Transfer USDT to the seller [x]
-     */
+    */
     function burn(uint256 _amount) public {
         require(_amount > 0, "amount cannot be zero");
-        require(balanceOf(msg.sender) > _amount, "Not Enough Tokens");
+        require(balanceOf(msg.sender) >= _amount, "Insufficient token balance to burn");
         uint returnedAmount = _continousBurn(_amount);
         IERC20(reserveTokenAddress).transfer(msg.sender, returnedAmount);
     }

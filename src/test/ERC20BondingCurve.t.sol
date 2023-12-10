@@ -10,12 +10,9 @@ import "../ERC20BondingCurve.sol";
 
 contract TestBondedToken is Test {
 
-    // Import the contracts to test and Intiate it [x]
-    // Create a ERC20 USDT token contracts [x]
-    // Create 2 users [x]
-    // Label them. [x]
-    // Send USDT to each users [x]
-    // 
+
+    event MintTokens(address indexed Minter, uint256 amountToMint);
+    event BurnedTokens(address indexed Burner, uint256 _amountToBurn, uint256 payBackAmount);
 
     ERC20BondingCurve ERCBondingCurveContract;
     USDT USDTTokenContract;
@@ -144,6 +141,9 @@ contract TestBondedToken is Test {
 
         emit log_named_decimal_uint("User2 Balance in BTC after",
                                     use2BTCBalance, 18);
+        
+        emit log_named_decimal_uint("User2 Balance in BTC after",
+                                    use2BTCBalance, 18);
     
         // Check if User1's BTC balance matches the expected mint return
         assertEq(use2BTCBalance , user2ExpMintReturn, " User2 BTC balance incorrect");
@@ -156,13 +156,26 @@ contract TestBondedToken is Test {
 
         console.log("--------------------------------------------------------------------------");
 
-        // emit log_named_decimal_uint("Bonding curve contract Reserve/Pool/Balance ",
-        //                             IERC20(ERCBondingCurveContract.reserveTokenAddress()).balanceOf(address(ERCBondingCurveContract)),
-        //                             18);
+        emit log_named_decimal_uint("Bonding curve contract Reserve/Pool/Balance ",
+                                    poolBalAfterUser2Mint,
+                                    18);
 
         vm.stopPrank();
        
     }
+
+
+    // stopped at test emit event
+    function testMintEventEmit() public {
+        testMintingTokensSuccessfully();
+        
+        vm.expectEmit()
+        emit MintTokens(address(User1), ) 
+
+
+
+    }
+
 
     function testExpectRevertNotEnoughAllowance() public {
         vm.startPrank(User1);
@@ -173,14 +186,8 @@ contract TestBondedToken is Test {
         vm.stopPrank();
     }
 
-    // Test use case for Burn function  // Test burn function // Stopped Here
-    /**
-        1. The amount of USDT is returned to the user after successfully sell back their BTC to the curve bonding contract
-        based on the bonding curve formula
-        2. The User has enough balance to call burn(revert)
-        3. The reservebalance decreased by the amount of USDT returned to the user1 and user2
-    */
-    
+
+    // Specify what exactly this function is testing in the Natspec    
     function testBurningTokensSuccessfully() public {
         testMintingTokensSuccessfully();
 
@@ -189,41 +196,52 @@ contract TestBondedToken is Test {
         vm.startPrank(User1);
 
         uint256 use1BTCBalancebef = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
+        uint256 user1ExpBurnReturn = ERCBondingCurveContract.calculateContinuousBurnReturn(use1BTCBalancebef);
 
-        uint256 user1ExpBurnReturn = ERCBondingCurveContract.calculateContinuousBurnReturn(use1BTCBalancebef / 1e18);
+        console.log("user1ExpBurnReturn",user1ExpBurnReturn);
 
-        // This return 74 USDT for the same amount of BTC tokens a paid for with 50 USDT.
-        // The price increased as the user2 bough 200 USDT worth of BTC
-        console.log("BRrr",user1ExpBurnReturn); 
+        emit log_named_decimal_uint("User1 Balance in USDT before Burning BTC", USDTTokenContract.balanceOf(address(User1)), 18);
 
-        // Stoped here...
+        ERCBondingCurveContract.burn(use1BTCBalancebef);
 
-
-    //     uint256 user1ExpBurnReturn = ERCBondingCurveContract.calculateContinuousBurnReturn(use1BTCBalancebef);
+        uint256 use1BTCBalanceAft = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
+        uint256 user1USDTBalance = USDTTokenContract.balanceOf(address(User1));
+        uint256 poolBalAfterUser1Burn = IERC20(USDTTokenContract).balanceOf(address(ERCBondingCurveContract));
         
-        // ERCBondingCurveContract.burn(use1BTCBalancebef);
-
-        // uint256 use1BTCBalanceAft = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
-        // uint256 user1USDTBalance = USDTTokenContract.balanceOf(address(User1));
-        // uint256 poolBalAfterUser1Burn = IERC20(USDTTokenContract).balanceOf(address(ERCBondingCurveContract));
+        emit log_named_decimal_uint("User1 Balance in USDT after Burning BTC",
+                                     user1USDTBalance, 18);
+        emit log_named_decimal_uint("User1 Balance in BTC after",
+                                     use1BTCBalanceAft , 18);
+        emit log_named_decimal_uint("Bonding curve contract Reserve/Pool/Balance",
+                                     poolBalAfterUser1Burn , 18);
         
-        // emit log_named_decimal_uint("User1 Balance in USDT after Burning BTC", user1USDTBalance, 18);
-        // emit log_named_decimal_uint("User1 Balance in BTC after", use1BTCBalanceAft , 18);
-        // emit log_named_decimal_uint("Bonding curve contract Reserve/Pool/Balance ", poolBalAfterUser1Burn , 18);
-        
-        // // Check if User1's BTC balance is is zero after Burning all his BTC balance
-        // assertEq(use1BTCBalanceAft , 0, " User1 BTC balance Should be zero");
+        // Check if User1's BTC balance is is zero after Burning all his BTC balance
+        assertEq(use1BTCBalanceAft , 0, " User1 BTC balance Should be zero after burn");
 
         // // Check if User1's USDT balance match the expected burn return
-        // assertEq(user1USDTBalance, user1ExpBurnReturn, "User2 USDT balance Incorrect");
+        assertEq(user1USDTBalance, user1ExpBurnReturn, "User2 USDT balance Incorrect");
 
         // // Check if the bonding curve contract reserve balance decreased correctly after User2'1 Burn/Withdraw
-        // assertEq(poolBalAfterUser1Burn, 50050 ether - user1ExpBurnReturn, "Reserve should decrease by expect burn return after User2 Burn");
-        //  console.log("---------------------------------------------------------------------------------");
+        assertEq(poolBalAfterUser1Burn, 250 ether - user1ExpBurnReturn, "Reserve should decrease by expect burn return after User2 Burn");
+        
+        console.log("---------------------------------------------------------------------------------");
 
-        // vm.stopPrank();
+        vm.stopPrank();
 
     }
+
+
+    function testExpectRevertNotEnoughTokensToBurn() public {
+        testMintingTokensSuccessfully();
+        vm.startPrank(User1);
+             uint256 use1BalBTCToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
+            vm.expectRevert("Insufficient token balance to burn");
+            ERCBondingCurveContract.burn(use1BalBTCToBurn + 1);
+        vm.stopPrank();
+    }
+
+
+
 
 
 
