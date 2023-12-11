@@ -61,16 +61,16 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     */
     function mint(uint _depositedAmount) public returns (uint _amountMinted) {
         
-        require(_depositedAmount > 0, "_depositedAmount_CANNOT_BE_ZERO");
+        require(_depositedAmount > 0, "DEPOSIT_AMOUNT_ZERO");
 
         // Check if the contract has enough allowance
         uint allowance = IERC20(reserveTokenAddress).allowance(msg.sender, address(this));
         
-        require(allowance > 0, "Allowance cannot be zero");
+        require(allowance > 0, "ALLOWANCE_ZERO");
         require(allowance >= _depositedAmount, "NOT_ENOUGH_ALLOWANCE");
 
         bool succ = IERC20(reserveTokenAddress).transferFrom(msg.sender, address(this), allowance);
-        require(succ, "Transfer of reserve tokens failed");
+        require(succ, "TX_FAILED");
 
         return _continousMint(allowance); 
     }
@@ -83,8 +83,8 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         Transfer USDT to the seller [x]
     */
     function burn(uint256 _amount) public {
-        require(_amount > 0, "amount cannot be zero");
-        require(balanceOf(msg.sender) >= _amount, "Insufficient token balance to burn");
+        require(_amount > 0, "AMOUNT_ZERO");
+        require(balanceOf(msg.sender) >= _amount, "INSUFFICIENT_BURN_BALANCE");
         uint returnedAmount = _continousBurn(_amount);
         IERC20(reserveTokenAddress).transfer(msg.sender, returnedAmount);
     }
@@ -98,11 +98,9 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
 
         uint payBackAmount  = calculateContinuousBurnReturn(_amount);
 
-        _burn(msg.sender, _amount); // Maybe An error will come from this 
-
-        // burn(msg.sender, _amount * scale);
-
         reserveBalance -= payBackAmount;
+
+        _burn(msg.sender, _amount); // Maybe An error will come from this 
 
         emit BurnedTokens(msg.sender, _amount, payBackAmount);
 

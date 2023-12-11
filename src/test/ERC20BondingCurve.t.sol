@@ -18,6 +18,7 @@ contract TestBondedToken is Test {
     USDT USDTTokenContract;
     address public User1;
     address public User2;
+    address public Wale;
 
     uint256 public reserveRatio = 500000; // 50% RR = Linear Bonding Curve.
 
@@ -32,12 +33,15 @@ contract TestBondedToken is Test {
 
         User1 = vm.addr(0x1234);
         User2 = vm.addr(0x5678);
+        Wale = vm.addr(0x43290);
 
         vm.label(User1, "USER1");
         vm.label(User2, "USER2");
+        vm.label(Wale, "Wale");
 
         USDTTokenContract.transfer(User1, 50 ether);
         USDTTokenContract.transfer(User2, 200 ether);
+        USDTTokenContract.transfer(Wale, 70000 ether);
 
     }
 
@@ -166,14 +170,25 @@ contract TestBondedToken is Test {
 
 
     // stopped at test emit event
-    function testMintEventEmit() public {
+    function testMintEventEmitted() public {
+        vm.startPrank(User1);
+        uint amountToMint = ERCBondingCurveContract.calculateContinuousMintReturn(50 ether);
+        USDTTokenContract.approve(address(ERCBondingCurveContract), 50 ether);
+        vm.expectEmit(true, false, false, true);
+        emit MintTokens(address(User1), amountToMint); 
+        ERCBondingCurveContract.mint(50 ether);
+    }
+
+
+    // stopped at test emit event
+    function testBurnEventEmitted() public {
         testMintingTokensSuccessfully();
-        
-        vm.expectEmit()
-        emit MintTokens(address(User1), ) 
-
-
-
+        vm.startPrank(User2);
+        uint256 amountToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User2));
+        uint256 payBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(amountToBurn);
+        vm.expectEmit(true, false, false, true);
+        emit BurnedTokens(address(User2), amountToBurn, payBackAmount); 
+        ERCBondingCurveContract.burn(amountToBurn);
     }
 
 
@@ -183,6 +198,15 @@ contract TestBondedToken is Test {
             USDTTokenContract.approve(address(ERCBondingCurveContract), 40 ether);
             vm.expectRevert("NOT_ENOUGH_ALLOWANCE");
             ERCBondingCurveContract.mint(50 ether);
+        vm.stopPrank();
+    }
+
+    function testExpectRevertMintZeroAmount() public {
+        vm.startPrank(User1);
+            USDTTokenContract.transfer(User1, 50 ether);
+            USDTTokenContract.approve(address(ERCBondingCurveContract), 50 ether);
+            vm.expectRevert("DEPOSIT_AMOUNT_ZERO");
+            ERCBondingCurveContract.mint(0);
         vm.stopPrank();
     }
 
@@ -235,14 +259,68 @@ contract TestBondedToken is Test {
         testMintingTokensSuccessfully();
         vm.startPrank(User1);
              uint256 use1BalBTCToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
-            vm.expectRevert("Insufficient token balance to burn");
+            vm.expectRevert("INSUFFICIENT_BURN_BALANCE");
             ERCBondingCurveContract.burn(use1BalBTCToBurn + 1);
         vm.stopPrank();
     }
 
 
+    function testExpectRevertBurnZeroAmount() public {
+        vm.startPrank(User1);
+            vm.expectRevert("AMOUNT_ZERO");
+            ERCBondingCurveContract.burn(0);
+        vm.stopPrank();
+    }
 
+    // Test that the price of tokens decreases after several burns
+    function testPriceIncreaseAfterWhalePurchase() public  {
+        testMintingTokensSuccessfully();
+        // Get the current price of BTC Tokens after User1 and User2
+        
+        vm.startPrank(Wale);
+        emit log_named_decimal_uint("User1 Balance in BTC before ",
+                                    IERC20(ERCBondingCurveContract).balanceOf(address(Wale))
+                                    , 18);
+        emit log_named_decimal_uint("Current BTC price before Wale Purchase ",
+                                    ERCBondingCurveContract.getBTCPrice()
+                                    , 18);
+        
+        USDTTokenContract.approve(address(ERCBondingCurveContract), 70000 ether);
 
+        // uint256 WaleExpMintReturn = ERCBondingCurveContract.calculateContinuousMintReturn(70000 ether);
+
+        ERCBondingCurveContract.mint(70000 ether);
+
+        emit log_named_decimal_uint("Current BTC price After Wale Purchase ",
+                                    ERCBondingCurveContract.getBTCPrice()
+                                    , 18);
+
+        vm.stopPrank();
+
+        // Check that User1 and User2 tokens value increased if they want to burn/sell after Wale purchase
+        vm.startPrank(User1);
+        uint256 user1AmountToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
+        uint256 user1PayBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(user1AmountToBurn);
+        emit log_named_decimal_uint("User1: Price Sell price return",
+                                    user1PayBackAmount
+                                    , 18);
+        ERCBondingCurveContract.burn(user1AmountToBurn);
+        assertEq(USDTTokenContract.balanceOf(address(User1)),
+                         user1PayBackAmount, "Should be equal to user1PayBackAmount");
+        vm.stopPrank();
+
+        vm.startPrank(User2);
+        uint256 user2AmountToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User2));
+        uint256 user2PayBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(user2AmountToBurn);
+        emit log_named_decimal_uint("User2: Price Sell price return",
+                                    user2PayBackAmount
+                                    , 18);
+        ERCBondingCurveContract.burn(user2AmountToBurn);
+        assertEq(USDTTokenContract.balanceOf(address(User2)),  
+                        user2PayBackAmount);
+        vm.stopPrank();
+
+    }
 
 
 }
