@@ -323,6 +323,23 @@ contract TestBondedToken is Test {
     }
 
 
+    function testPriceDropsAfterWaleBurn() public {
+        testPriceIncreaseAfterWhalePurchase();
+
+        vm.startPrank(Wale);
+        uint256 waleBTCBal = IERC20(ERCBondingCurveContract).balanceOf(address(Wale));
+        uint256 walePayBackAmount = RCBondingCurveContract.calculateContinuousBurnReturn(waleBTCBal);
+            ERCBondingCurveContract.burn(walePayBackAmount);
+        vm.stopPrank();
+    }
+
+
+
+
+    
+
+
+
 }
 
 
