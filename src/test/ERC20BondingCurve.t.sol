@@ -18,7 +18,7 @@ contract TestBondedToken is Test {
     USDT USDTTokenContract;
     address public User1;
     address public User2;
-    address public Wale;
+    address public whale;
 
     uint256 public reserveRatio = 500000; // 50% RR = Linear Bonding Curve.
 
@@ -33,21 +33,27 @@ contract TestBondedToken is Test {
 
         User1 = vm.addr(0x1234);
         User2 = vm.addr(0x5678);
-        Wale = vm.addr(0x43290);
+        whale = vm.addr(0x43290);
 
         vm.label(User1, "USER1");
         vm.label(User2, "USER2");
-        vm.label(Wale, "Wale");
+        vm.label(whale, "Whale");
 
         USDTTokenContract.transfer(User1, 50 ether);
         USDTTokenContract.transfer(User2, 200 ether);
-        USDTTokenContract.transfer(Wale, 70000 ether);
+        USDTTokenContract.transfer(whale, 70000 ether);
 
     }
 
     // Call the function that calculate the the mintamount based on the deposit after minting
     // The amount returned by that function should be equal to amount of BTC token received by the user.
     function testMintingTokensSuccessfully() public {
+        
+    console.log("----------------------------INITIAL VALUES TO DETERMINE THE PRICE------------------------------------------");
+        console.log("Initial totalSupply of BTC tokens ", ERCBondingCurveContract.totalSupply());
+        console.log("Initial Contract reserve in USDT ", ERCBondingCurveContract.reserveBalance());
+        console.log("Initial reserve ratio", ERCBondingCurveContract.reserveRatio());
+        console.log("Initial price tokens of BTC", ERCBondingCurveContract.getBTCPrice());
 
         emit log_named_decimal_uint("Address(this) Balance in BTC",
                                     IERC20(ERCBondingCurveContract).balanceOf(address(this))
@@ -60,7 +66,7 @@ contract TestBondedToken is Test {
         emit log_named_decimal_uint("User2 Balance in USDT before minting BTC",
                                     USDTTokenContract.balanceOf(address(User2)), 18);
 
-
+        
         vm.startPrank(User1);
 
         console.log("-------------------------User1-----------------------------");
@@ -75,7 +81,7 @@ contract TestBondedToken is Test {
         
         emit log_named_decimal_uint("Current BTC price before user1 mint ",
                                     ERCBondingCurveContract.getBTCPrice()
-                                    , 18);
+                                    , 0);
 
         USDTTokenContract.approve(address(ERCBondingCurveContract), 50 ether);
 
@@ -89,7 +95,7 @@ contract TestBondedToken is Test {
 
         emit log_named_decimal_uint("Current BTC price after user1 mint ",
                                     ERCBondingCurveContract.getBTCPrice()
-                                    , 18);
+                                    , 0);
 
         emit log_named_decimal_uint("User1 Balance in USDT after minting BTC", user1USDTBalance, 18);
         emit log_named_decimal_uint("User1 Balance in BTC after", use1BTCBalance , 18);
@@ -123,7 +129,7 @@ contract TestBondedToken is Test {
         
         emit log_named_decimal_uint("Current BTC price before user2 mint ",
                                     ERCBondingCurveContract.getBTCPrice()
-                                    , 18);
+                                    ,18 );
 
         USDTTokenContract.approve(address(ERCBondingCurveContract), 200 ether);
 
@@ -277,27 +283,32 @@ contract TestBondedToken is Test {
         testMintingTokensSuccessfully();
         // Get the current price of BTC Tokens after User1 and User2
         
-        vm.startPrank(Wale);
+        vm.startPrank(whale);
         emit log_named_decimal_uint("User1 Balance in BTC before ",
-                                    IERC20(ERCBondingCurveContract).balanceOf(address(Wale))
+                                    IERC20(ERCBondingCurveContract).balanceOf(address(whale))
                                     , 18);
-        emit log_named_decimal_uint("Current BTC price before Wale Purchase ",
+                                    
+        emit log_named_decimal_uint("Current BTC price before whale Purchase",
                                     ERCBondingCurveContract.getBTCPrice()
                                     , 18);
         
         USDTTokenContract.approve(address(ERCBondingCurveContract), 70000 ether);
 
-        // uint256 WaleExpMintReturn = ERCBondingCurveContract.calculateContinuousMintReturn(70000 ether);
+        // uint256 whaleExpMintReturn = ERCBondingCurveContract.calculateContinuousMintReturn(70000 ether);
+        uint256 initialPrice = ERCBondingCurveContract.getBTCPrice();
 
         ERCBondingCurveContract.mint(70000 ether);
 
-        emit log_named_decimal_uint("Current BTC price After Wale Purchase ",
+        emit log_named_decimal_uint("Current BTC price After whale Purchase",
                                     ERCBondingCurveContract.getBTCPrice()
                                     , 18);
+        uint256 expectedIncreasedPricePercentage = 90;
+        uint256 expectedIncreasePrice = initialPrice * (100 + expectedIncreasedPricePercentage) / 100;
+        uint256 newPrice = ERCBondingCurveContract.getBTCPrice();
 
         vm.stopPrank();
 
-        // Check that User1 and User2 tokens value increased if they want to burn/sell after Wale purchase
+        // Check that User1 and User2 tokens value increased if they want to burn/sell after whale purchase
         vm.startPrank(User1);
         uint256 user1AmountToBurn = IERC20(ERCBondingCurveContract).balanceOf(address(User1));
         uint256 user1PayBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(user1AmountToBurn);
@@ -323,15 +334,32 @@ contract TestBondedToken is Test {
     }
 
 
-    function testPriceDropsAfterWaleBurn() public {
+    function testPriceDropsAfterwhaleBurn() public {
         testPriceIncreaseAfterWhalePurchase();
-
-        vm.startPrank(Wale);
-        uint256 waleBTCBal = IERC20(ERCBondingCurveContract).balanceOf(address(Wale));
-        uint256 walePayBackAmount = RCBondingCurveContract.calculateContinuousBurnReturn(waleBTCBal);
-            ERCBondingCurveContract.burn(walePayBackAmount);
+        vm.startPrank(whale);
+            emit log_named_decimal_uint("Current BTC price before whale sell off ",
+                                    ERCBondingCurveContract.getBTCPrice()
+                                    , 18);
+        uint initialPrice = ERCBondingCurveContract.getBTCPrice();
+        uint256 whaleBTCBal = IERC20(ERCBondingCurveContract).balanceOf(address(whale));
+        uint256 whalePayBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(whaleBTCBal);
+            ERCBondingCurveContract.burn(whaleBTCBal);
+            emit log_named_decimal_uint("Current BTC price after whale sell off ",
+                                    ERCBondingCurveContract.getBTCPrice()
+                                    , 18);
+        // Calculate that the price drops by 50%
+        uint expectedDropsPricePercentage = 95; // 95%
+        uint expectedPriceDrops = initialPrice * (100 - expectedDropsPricePercentage) / 100;
+        console.log("expected price drops", expectedPriceDrops);
+        uint newPrice = ERCBondingCurveContract.getBTCPrice();
+        assertLe(newPrice, expectedPriceDrops, "Price drop is less than expected percentage");
         vm.stopPrank();
     }
+
+
+
+
+
 
 
 

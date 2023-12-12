@@ -108,9 +108,13 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     }
 
 
-
-    function getBTCPrice() public view returns(uint256) {   
-        return (totalSupply() * reserveRatio) / reserveBalance;
+    // 
+    // Continuous Token Price = Reserve Token Balance / (Continuous Token Supply x Reserve Ratio)
+    function getBTCPrice() public view returns(uint256) {
+        // uint256 tokenPrice = reserveBalance / (totalSupply() * reserveRatio);
+        uint256 tokenPrice = (reserveBalance * 1e18) / (totalSupply() * reserveRatio / 1e6);
+        // uint256 tokenPrice = (totalSupply() * reserveRatio) / reserveBalance;
+        return tokenPrice;
     }
 
 
