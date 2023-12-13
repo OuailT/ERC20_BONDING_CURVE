@@ -4,9 +4,10 @@ pragma solidity ^0.8.0;
 
 import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import "./curves/BancorFormula.sol";
+import "openzeppelin-contracts/contracts/security/ReentrancyGuard.sol";
 
 
-contract ERC20BondingCurve is BancorFormula, ERC20 {
+contract ERC20BondingCurve is BancorFormula, ERC20, ReentrancyGuard {
 
     // Define Important state variables
     uint public scale = 10**18;
@@ -25,12 +26,6 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     event BurnedTokens(address indexed Burner, uint256 _amountToBurn, uint256 payBackAmount);
 
 
-    // constructor;
-    /***
-        param: reverve ration, reserve address
-        define ERC20 tokens BTC and mint 10 BTC to the deployer
-        Natspec: 
-    */
     
     /**
      * ReserveRation = Price sensitivity
@@ -47,10 +42,6 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         _mint(msg.sender, 10 * scale);
     }
 
-   // 1.000.000.000 => 224744871391589049098642037.000000000000000000
-   // 10 => 2247448713915890490.000000000000000000
-
-
     
     /**
         * @dev Mints new tokens in exchange for the deposited reserve tokens.
@@ -59,7 +50,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
         * @return _amountMinted The amount of new tokens minted as a result of the deposit.
         * @notice Mints tokens in return for reserve tokens, subject to sender's allowance and transfer success.
     */
-    function mint(uint _depositedAmount) public returns (uint _amountMinted) {
+    function mint(uint _depositedAmount) public  nonReentrant  returns (uint _amountMinted){
         
         require(_depositedAmount > 0, "DEPOSIT_AMOUNT_ZERO");
 
@@ -76,13 +67,8 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     }
 
 
-    // Function burn 
-    /** It purpose: allows user to sell/burn BTC token and get the reserve token price based on the curve price [x]
-        param: Amount of token to withdraw/burn get back USDT [x]
-        calculate the saleReturn based on the current position of the curve. [x]
-        Transfer USDT to the seller [x]
-    */
-    function burn(uint256 _amount) public {
+    
+    function burn(uint256 _amount) public nonReentrant {
         require(_amount > 0, "AMOUNT_ZERO");
         require(balanceOf(msg.sender) >= _amount, "INSUFFICIENT_BURN_BALANCE");
         uint returnedAmount = _continousBurn(_amount);
@@ -90,7 +76,6 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     }
 
 
-    //1. calculate the saleReturn amount based on the current position of the curve. and burn it
 
     function _continousBurn(uint _amount) public returns(uint256) {
         
@@ -108,8 +93,7 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     }
 
 
-    // 
-    // Continuous Token Price = Reserve Token Balance / (Continuous Token Supply x Reserve Ratio)
+
     function getBTCPrice() public view returns(uint256) {
         // uint256 tokenPrice = reserveBalance / (totalSupply() * reserveRatio);
         uint256 tokenPrice = (reserveBalance * 1e18) / (totalSupply() * reserveRatio / 1e6);
@@ -134,11 +118,6 @@ contract ERC20BondingCurve is BancorFormula, ERC20 {
     }
 
 
-
-    // function calculateContinuousMintReturn() internal
-    /**
-        purpose: Allows to calculate the price of the minted tokens based on the reservebalance(), and totalSupply() 
-    */
     function calculateContinuousMintReturn(uint _amount) 
         public
         view 

@@ -287,10 +287,10 @@ contract TestBondedToken is Test {
         emit log_named_decimal_uint("User1 Balance in BTC before ",
                                     IERC20(ERCBondingCurveContract).balanceOf(address(whale))
                                     , 18);
-                                    
+
         emit log_named_decimal_uint("Current BTC price before whale Purchase",
                                     ERCBondingCurveContract.getBTCPrice()
-                                    , 18);
+                                    , 0);
         
         USDTTokenContract.approve(address(ERCBondingCurveContract), 70000 ether);
 
@@ -301,11 +301,10 @@ contract TestBondedToken is Test {
 
         emit log_named_decimal_uint("Current BTC price After whale Purchase",
                                     ERCBondingCurveContract.getBTCPrice()
-                                    , 18);
+                                    , 0);
         uint256 expectedIncreasedPricePercentage = 90;
         uint256 expectedIncreasePrice = initialPrice * (100 + expectedIncreasedPricePercentage) / 100;
         uint256 newPrice = ERCBondingCurveContract.getBTCPrice();
-
         vm.stopPrank();
 
         // Check that User1 and User2 tokens value increased if they want to burn/sell after whale purchase
@@ -331,7 +330,9 @@ contract TestBondedToken is Test {
                         user2PayBackAmount);
         vm.stopPrank();
 
+        assertGe(newPrice, expectedIncreasePrice, "The newPrice didn't increase the expected increase price");
     }
+
 
 
     function testPriceDropsAfterwhaleBurn() public {
@@ -342,12 +343,12 @@ contract TestBondedToken is Test {
                                     , 18);
         uint initialPrice = ERCBondingCurveContract.getBTCPrice();
         uint256 whaleBTCBal = IERC20(ERCBondingCurveContract).balanceOf(address(whale));
-        uint256 whalePayBackAmount = ERCBondingCurveContract.calculateContinuousBurnReturn(whaleBTCBal);
+
             ERCBondingCurveContract.burn(whaleBTCBal);
             emit log_named_decimal_uint("Current BTC price after whale sell off ",
                                     ERCBondingCurveContract.getBTCPrice()
                                     , 18);
-        // Calculate that the price drops by 50%
+        // Calculate that the price has drops by 50%
         uint expectedDropsPricePercentage = 95; // 95%
         uint expectedPriceDrops = initialPrice * (100 - expectedDropsPricePercentage) / 100;
         console.log("expected price drops", expectedPriceDrops);
@@ -355,6 +356,14 @@ contract TestBondedToken is Test {
         assertLe(newPrice, expectedPriceDrops, "Price drop is less than expected percentage");
         vm.stopPrank();
     }
+
+
+    // A slippage scenario with bonding curve formula
+    // I want to buy 1000 tokens, the initial price of each token is 10 dollar
+    // I'm placing an order for 1000 tokens for 10 dollar per token
+    // By the time my entire order is filled I found myself paying 11 dollar for each token instead of 10
+    // 1 dollar is the slippage.
+
 
 
 
